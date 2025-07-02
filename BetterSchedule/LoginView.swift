@@ -5,13 +5,16 @@ struct LoginView: View {
     @EnvironmentObject var authManager: AuthManager
     @State private var username = ""
     @State private var password = ""
-    @State private var biometricsAvailable = false      // toggle Face ID button
+    @State private var biometricsAvailable = false
+    @State private var showErrorAlert = false
 
     private let service = "com.yourcompany.yourapp"
 
     var body: some View {
         VStack(spacing: 20) {
-            Text("Login").font(.largeTitle)
+            Text("Login")
+                .font(.largeTitle)
+                .padding(.top)
 
             TextField("Username", text: $username)
                 .textFieldStyle(.roundedBorder)
@@ -21,54 +24,69 @@ struct LoginView: View {
                 .textFieldStyle(.roundedBorder)
 
             Button("Log In") {
-                authManager.login(username: username, password: password)
-                try? KeychainHelper.shared.saveProtected(service: service,
-                                                         account: "username",
-                                                         value: username)
-                try? KeychainHelper.shared.saveProtected(service: service,
-                                                         account: "password",
-                                                         value: password)
+                login()
             }
             .buttonStyle(.borderedProminent)
 
-            // Face ID / Touch ID quick login
             if biometricsAvailable {
                 Button {
                     Task { await biometricLogin() }
                 } label: {
-                    Label("Login with Face ID", systemImage: "faceid") // Touch ID auto-swaps icon
+                    Label("Login with Face ID", systemImage: "faceid")
                 }
                 .buttonStyle(.bordered)
             }
         }
         .padding()
-        .onAppear {
-            biometricsAvailable = LAContext().canEvaluatePolicy(
-                .deviceOwnerAuthenticationWithBiometrics, error: nil)
+        .onAppear(perform: configureBiometrics)
+        .onReceive(authManager.$authError) { error in
+            showErrorAlert = error != nil
+        }
+        .alert("Login Failed",
+               isPresented: $showErrorAlert,
+               actions: {
+                   Button("OK", role: .cancel) {
+                       authManager.authError = nil
+                   }
+               },
+               message: {
+                   Text(authManager.authError ?? "Unknown error")
+               })
+    }
 
-            // Autofill if already unlocked in keychain (e.g. during same session)
-            if let savedUser = try? KeychainHelper.shared.readProtected(service: service,
-                                                                        account: "username",
-                                                                        prompt: "Auto-fill credentials") {
-                username = savedUser
-            }
+    private func configureBiometrics() {
+        biometricsAvailable = LAContext()
+            .canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: nil)
+
+        // Optional: Autofill if already unlocked in session
+        if let savedUser = try? KeychainHelper.shared.readProtected(service: service,
+                                                                    account: "username",
+                                                                    prompt: "Auto-fill credentials") {
+            username = savedUser
         }
     }
 
-    // MARK: – Face ID flow
+    private func login() {
+        authManager.login(username: username, password: password)
+
+        do {
+            try KeychainHelper.shared.saveProtected(service: service, account: "username", value: username)
+            try KeychainHelper.shared.saveProtected(service: service, account: "password", value: password)
+        } catch {
+            print("Keychain save failed: \(error.localizedDescription)")
+        }
+    }
+
     @MainActor
     private func biometricLogin() async {
         do {
-            let savedUser = try KeychainHelper.shared.readProtected(service: service,
-                                                                    account: "username")
-            let savedPass = try KeychainHelper.shared.readProtected(service: service,
-                                                                    account: "password")
+            let savedUser = try KeychainHelper.shared.readProtected(service: service, account: "username")
+            let savedPass = try KeychainHelper.shared.readProtected(service: service, account: "password")
             username = savedUser
             password = savedPass
             authManager.login(username: savedUser, password: savedPass)
         } catch {
-            // Handle cancellations or missing creds gracefully
-            print("Biometric login failed:", error)
+            authManager.authError = "Biometric login failed: \(error.localizedDescription)"
         }
     }
 }
