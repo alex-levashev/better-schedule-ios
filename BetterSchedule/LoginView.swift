@@ -42,16 +42,17 @@ struct LoginView: View {
         .onReceive(authManager.$authError) { error in
             showErrorAlert = error != nil
         }
-        .alert("Login Failed",
-               isPresented: $showErrorAlert,
-               actions: {
-                   Button("OK", role: .cancel) {
-                       authManager.authError = nil
-                   }
-               },
-               message: {
-                   Text(authManager.authError ?? "Unknown error")
-               })
+        .alert(
+            "Login Failed",
+            isPresented: $showErrorAlert,
+            actions: {
+                Button("OK", role: .cancel) {
+                    authManager.authError = nil
+                }
+            },
+            message: {
+                Text(authManager.authError ?? "Unknown error")
+            })
     }
 
     private func configureBiometrics() {
@@ -59,9 +60,11 @@ struct LoginView: View {
             .canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: nil)
 
         // Optional: Autofill if already unlocked in session
-        if let savedUser = try? KeychainHelper.shared.readProtected(service: service,
-                                                                    account: "username",
-                                                                    prompt: "Auto-fill credentials") {
+        if let savedUser = try? KeychainHelper.shared.readProtected(
+            service: service,
+            account: "username",
+            prompt: "Auto-fill credentials")
+        {
             username = savedUser
         }
     }
@@ -70,8 +73,10 @@ struct LoginView: View {
         authManager.login(username: username, password: password)
 
         do {
-            try KeychainHelper.shared.saveProtected(service: service, account: "username", value: username)
-            try KeychainHelper.shared.saveProtected(service: service, account: "password", value: password)
+            try KeychainHelper.shared.saveProtected(
+                service: service, account: "username", value: username)
+            try KeychainHelper.shared.saveProtected(
+                service: service, account: "password", value: password)
         } catch {
             print("Keychain save failed: \(error.localizedDescription)")
         }
@@ -80,8 +85,10 @@ struct LoginView: View {
     @MainActor
     private func biometricLogin() async {
         do {
-            let savedUser = try KeychainHelper.shared.readProtected(service: service, account: "username")
-            let savedPass = try KeychainHelper.shared.readProtected(service: service, account: "password")
+            let savedUser = try KeychainHelper.shared.readProtected(
+                service: service, account: "username")
+            let savedPass = try KeychainHelper.shared.readProtected(
+                service: service, account: "password")
             username = savedUser
             password = savedPass
             authManager.login(username: savedUser, password: savedPass)

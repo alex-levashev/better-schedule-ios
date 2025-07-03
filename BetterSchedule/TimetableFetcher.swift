@@ -23,8 +23,9 @@ class TimetableFetcher {
             }
 
             do {
-            
-                let json = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any]
+
+                let json =
+                    try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any]
                 if let json = json {
                     completion(.success(json))
                 } else {

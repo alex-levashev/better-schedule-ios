@@ -1,7 +1,9 @@
 import Foundation
 
 class TokenService {
-    static func getToken(username: String, password: String, completion: @escaping (Result<String, Error>) -> Void) {
+    static func getToken(
+        username: String, password: String, completion: @escaping (Result<String, Error>) -> Void
+    ) {
         guard let url = URL(string: "https://znamky.ggg.cz/api/login") else {
             completion(.failure(TokenError.invalidURL))
             return
@@ -14,7 +16,7 @@ class TokenService {
             "username": username,
             "password": password,
             "client_id": "ANDR",
-            "grant_type": "password"
+            "grant_type": "password",
         ]
 
         let encodedParams = parameters.map { "\($0)=\($1)" }.joined(separator: "&")
@@ -34,7 +36,8 @@ class TokenService {
 
             do {
                 if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                   let token = json["access_token"] as? String {
+                    let token = json["access_token"] as? String
+                {
                     completion(.success(token))
                 } else {
                     completion(.failure(TokenError.invalidResponse))
@@ -46,18 +49,20 @@ class TokenService {
 
         task.resume()
     }
-    
-    static func refreshTokenWithStoredCredentials(completion: @escaping (Result<String, Error>) -> Void) {
-            guard
-                let username = UserDefaults.standard.string(forKey: "username"),
-                let password = UserDefaults.standard.string(forKey: "password")
-            else {
-                completion(.failure(TokenError.noStoredCredentials))
-                return
-            }
-            
-            getToken(username: username, password: password, completion: completion)
+
+    static func refreshTokenWithStoredCredentials(
+        completion: @escaping (Result<String, Error>) -> Void
+    ) {
+        guard
+            let username = UserDefaults.standard.string(forKey: "username"),
+            let password = UserDefaults.standard.string(forKey: "password")
+        else {
+            completion(.failure(TokenError.noStoredCredentials))
+            return
         }
+
+        getToken(username: username, password: password, completion: completion)
+    }
 
     enum TokenError: Error {
         case invalidURL
